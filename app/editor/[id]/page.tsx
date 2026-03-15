@@ -14,13 +14,14 @@ export default function EditorPage() {
 
   useEffect(() => {
     const id = params.id as string;
-    const found = getProject(id);
-    if (!found) {
-      router.replace('/');
-      return;
-    }
-    setProject(found);
-    setLoading(false);
+    getProject(id).then((found) => {
+      if (!found) {
+        router.replace('/');
+        return;
+      }
+      setProject(found);
+      setLoading(false);
+    });
   }, [params.id, router]);
 
   if (loading || !project) {

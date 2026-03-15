@@ -1,36 +1,37 @@
 import { Project, Carousel } from './types';
 
-const STORAGE_KEY = 'auraic-projects';
+// API-based storage (works with database on Railway)
 
-export function getAllProjects(): Project[] {
-  if (typeof window === 'undefined') return [];
+export async function getAllProjects(): Promise<Project[]> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as Project[];
+    const res = await fetch('/api/projects');
+    if (!res.ok) return [];
+    return await res.json();
   } catch {
     return [];
   }
 }
 
-export function getProject(id: string): Project | null {
-  return getAllProjects().find((p) => p.id === id) || null;
-}
-
-export function saveProject(project: Project): void {
-  const projects = getAllProjects();
-  const idx = projects.findIndex((p) => p.id === project.id);
-  if (idx >= 0) {
-    projects[idx] = { ...project, updatedAt: new Date().toISOString() };
-  } else {
-    projects.push({ ...project, updatedAt: new Date().toISOString() });
+export async function getProject(id: string): Promise<Project | null> {
+  try {
+    const res = await fetch(`/api/projects/${id}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
 }
 
-export function deleteProject(id: string): void {
-  const projects = getAllProjects().filter((p) => p.id !== id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+export async function saveProject(project: Project): Promise<void> {
+  await fetch(`/api/projects/${project.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: project.title || project.carousel.title, carousel: project.carousel }),
+  });
+}
+
+export async function deleteProject(id: string): Promise<void> {
+  await fetch(`/api/projects/${id}`, { method: 'DELETE' });
 }
 
 export function createProject(carousel: Carousel): Project {

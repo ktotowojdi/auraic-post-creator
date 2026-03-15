@@ -13,35 +13,37 @@ export default function Dashboard() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   useEffect(() => {
-    setProjects(getAllProjects().sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
+    getAllProjects().then((p) =>
+      setProjects(p.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()))
+    );
   }, []);
 
-  const handleNewProject = () => {
+  const handleNewProject = async () => {
     const carousel = createDefaultCarousel();
     const project = createProject(carousel);
-    saveProject(project);
+    await saveProject(project);
     router.push(`/editor/${project.id}`);
   };
 
-  const handleNewFromTemplate = (presetIndex: number) => {
+  const handleNewFromTemplate = async (presetIndex: number) => {
     const carousel = carouselPresets[presetIndex].create();
     const project = createProject(carousel);
-    saveProject(project);
+    await saveProject(project);
     router.push(`/editor/${project.id}`);
   };
 
-  const handleDuplicate = (project: Project) => {
+  const handleDuplicate = async (project: Project) => {
     const copy = createProject({
       ...project.carousel,
       id: `carousel-${Date.now()}`,
       title: `${project.title} (kopia)`,
     });
-    saveProject(copy);
+    await saveProject(copy);
     setProjects((prev) => [copy, ...prev]);
   };
 
-  const handleDelete = (id: string) => {
-    deleteProject(id);
+  const handleDelete = async (id: string) => {
+    await deleteProject(id);
     setProjects((prev) => prev.filter((p) => p.id !== id));
     setDeleteConfirm(null);
   };
