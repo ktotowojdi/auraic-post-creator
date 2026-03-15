@@ -148,6 +148,7 @@ export default function Icon3D({ type, color = 'purple', size = 256 }: Props) {
   const number = getNumberFromType(type);
   const IconComponent = number ? null : getLucideIcon(type);
   if (!IconComponent && !number) return null;
+  const LucideComp = IconComponent as LucideIcon;
 
   const borderRadius = size * 0.22;
   const iconSize = size * 0.45;
@@ -181,7 +182,7 @@ export default function Icon3D({ type, color = 'purple', size = 256 }: Props) {
           {number}
         </span>
       ) : (
-        <IconComponent
+        <LucideComp
           size={iconSize}
           color={colors.iconColor}
           strokeWidth={2}

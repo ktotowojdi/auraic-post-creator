@@ -1,10 +1,14 @@
-import { PrismaClient } from './generated/prisma';
+import { PrismaClient } from './generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
 function createClient() {
-  const adapter = new PrismaPg(process.env.DATABASE_URL!);
+  // PrismaPg accepts connection string directly in newer versions
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Pool } = require('pg');
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }
 
