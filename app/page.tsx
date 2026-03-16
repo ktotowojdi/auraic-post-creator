@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { Project } from '@/lib/types';
 import { getAllProjects, createProject, deleteProject, saveProject } from '@/lib/storage';
 import { createDefaultCarousel, carouselPresets } from '@/lib/templates';
@@ -62,12 +63,20 @@ export default function Dashboard() {
             <h1 className="text-2xl font-semibold">Auraic Post Creator</h1>
             <p className="text-white/40 text-sm mt-1">Twoje karuzele na Instagram, Facebook i LinkedIn</p>
           </div>
-          <button
-            onClick={handleNewProject}
-            className="px-5 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-sm font-medium transition-colors"
-          >
-            + Nowy projekt
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={handleNewProject}
+              className="px-5 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-sm font-medium transition-colors"
+            >
+              + Nowy projekt
+            </button>
+            <button
+              onClick={() => signOut()}
+              className="px-4 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/60 text-sm transition-colors"
+            >
+              Wyloguj
+            </button>
+          </div>
         </div>
 
         {/* Quick start templates — always visible */}
