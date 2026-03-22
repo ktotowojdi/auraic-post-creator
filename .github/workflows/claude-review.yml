@@ -19,49 +19,91 @@ jobs:
           fetch-depth: 0
 
       - name: Claude Code Review
+        id: claude
         uses: anthropics/claude-code-action@v1
         with:
           prompt: |
-            Provide a code review for this pull request.
-            Follow these steps precisely:
+            Review this pull request for bugs and CLAUDE.md compliance.
 
-            1. Check if this PR (a) is a draft, (b) doesn't need review (automated/trivial), (c) already has a code review from you. If so, comment "No review needed" and stop.
+            Steps:
+            1. Read CLAUDE.md if it exists in the repo root using the Read tool.
+            2. Use the Read tool to read the changed files.
+            3. Check for bugs, logic errors, security issues, and CLAUDE.md violations.
+            4. Score each issue 0-100 confidence. Only report issues at 80+.
+            5. Filter out: pre-existing issues, linter/type issues, nitpicks, intentional changes.
 
-            2. Find any CLAUDE.md files in the repo root and in directories modified by this PR.
-
-            3. Summarize the change briefly.
-
-            4. Review the change for:
-               a. CLAUDE.md compliance — check if changes violate any rules in CLAUDE.md
-               b. Obvious bugs — scan the diff for large bugs (not nitpicks, not style issues)
-               c. Historical context — check git blame/history for context on modified code
-               d. Previous PR comments — check if past PR comments on these files apply here
-               e. Code comments — verify changes comply with guidance in code comments
-
-            5. For each issue found, score confidence 0-100:
-               - 0: False positive
-               - 25: Might be real, can't verify
-               - 50: Real but nitpick
-               - 75: Verified real issue, important
-               - 100: Definitely real, confirmed
-
-            6. Only report issues scoring 80+. Filter out:
-               - Pre-existing issues
-               - Things linters/typecheckers catch
-               - General quality concerns unless CLAUDE.md requires them
-               - Intentional functionality changes
-               - Issues on lines not modified in this PR
-
-            7. Format your comment as:
-               ### Code review
-               Found N issues:
-               1. <description> (<reason>)
-               <link to file and line>
-
-               Or if no issues: "No issues found. Checked for bugs and CLAUDE.md compliance."
-
-               End with: 🤖 Generated with [Claude Code](https://claude.ai/code)
-          claude_args: "--model claude-sonnet-4-6 --max-turns 20"
-          use_sticky_comment: true
+            Do NOT use Bash or shell commands. Use only Read, Grep, and Glob tools.
+          claude_args: "--model claude-sonnet-4-6 --max-turns 15"
+          show_full_output: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Post review comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set +e
+          OUTPUT_FILE="/home/runner/work/_temp/claude-execution-output.json"
+          if [ ! -f "$OUTPUT_FILE" ]; then
+            echo "No output file found, skipping"
+            exit 0
+          fi
+
+          echo "Output file found, size: $(wc -c < "$OUTPUT_FILE") bytes"
+
+          # Use python to parse potentially multi-line JSON
+          BODY_FILE=$(mktemp)
+          python3 -c "
+          import json, sys
+          with open('$OUTPUT_FILE') as f:
+              content = f.read()
+          # Try parsing as JSON array or single object first
+          try:
+              data = json.loads(content)
+              if isinstance(data, list):
+                  items = data
+              elif isinstance(data, dict):
+                  items = [data]
+              else:
+                  items = []
+          except json.JSONDecodeError:
+              # Try NDJSON
+              items = []
+              for line in content.strip().split('\n'):
+                  line = line.strip()
+                  if line:
+                      try:
+                          items.append(json.loads(line))
+                      except json.JSONDecodeError:
+                          pass
+          # Find last result
+          result = ''
+          for item in items:
+              if isinstance(item, dict) and item.get('type') == 'result' and item.get('result'):
+                  result = item['result']
+          if result:
+              print(result)
+          " > "$BODY_FILE" 2>/dev/null
+
+          RESULT_SIZE=$(wc -c < "$BODY_FILE")
+          echo "Result size: $RESULT_SIZE bytes"
+
+          if [ "$RESULT_SIZE" -lt 10 ]; then
+            echo "No meaningful review result found"
+            rm -f "$BODY_FILE"
+            exit 0
+          fi
+
+          # Prepend marker and append footer
+          FINAL_FILE=$(mktemp)
+          printf '<!-- claude-code-review -->\n\n' > "$FINAL_FILE"
+          cat "$BODY_FILE" >> "$FINAL_FILE"
+          printf '\n\n---\n' >> "$FINAL_FILE"
+          printf '🤖 Generated with [Claude Code](https://claude.ai/code)\n' >> "$FINAL_FILE"
+
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file "$FINAL_FILE"
+
+          rm -f "$BODY_FILE" "$FINAL_FILE"
