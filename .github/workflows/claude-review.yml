@@ -7,6 +7,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  issues: write
 
 jobs:
   review:
@@ -21,10 +22,46 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           prompt: |
-            Review this PR and provide constructive feedback on:
-            - Code quality and best practices
-            - Potential bugs or issues
-            - Performance considerations
-            - Security concerns
+            Provide a code review for this pull request.
+            Follow these steps precisely:
+
+            1. Check if this PR (a) is a draft, (b) doesn't need review (automated/trivial), (c) already has a code review from you. If so, comment "No review needed" and stop.
+
+            2. Find any CLAUDE.md files in the repo root and in directories modified by this PR.
+
+            3. Summarize the change briefly.
+
+            4. Review the change for:
+               a. CLAUDE.md compliance — check if changes violate any rules in CLAUDE.md
+               b. Obvious bugs — scan the diff for large bugs (not nitpicks, not style issues)
+               c. Historical context — check git blame/history for context on modified code
+               d. Previous PR comments — check if past PR comments on these files apply here
+               e. Code comments — verify changes comply with guidance in code comments
+
+            5. For each issue found, score confidence 0-100:
+               - 0: False positive
+               - 25: Might be real, can't verify
+               - 50: Real but nitpick
+               - 75: Verified real issue, important
+               - 100: Definitely real, confirmed
+
+            6. Only report issues scoring 80+. Filter out:
+               - Pre-existing issues
+               - Things linters/typecheckers catch
+               - General quality concerns unless CLAUDE.md requires them
+               - Intentional functionality changes
+               - Issues on lines not modified in this PR
+
+            7. Format your comment as:
+               ### Code review
+               Found N issues:
+               1. <description> (<reason>)
+               <link to file and line>
+
+               Or if no issues: "No issues found. Checked for bugs and CLAUDE.md compliance."
+
+               End with: 🤖 Generated with [Claude Code](https://claude.ai/code)
+          claude_args: "--model claude-sonnet-4-6 --max-turns 20"
+          use_sticky_comment: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
